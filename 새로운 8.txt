@@ -1,0 +1,92 @@
+'
+'        Dim i As Long
+'        For i = 1 To ctx.rateArr.Count
+'            Dim seg: seg = ctx.rateArr(i)
+'
+'            Dim s As Date, e As Date
+'            s = Application.Max(yearStart, seg(0))
+'            e = Application.Min(yearEnd, seg(1))
+'            
+'            
+'            If s <= e Then
+'
+'              Dim rateCuts As Collection
+'                Dim mgrCuts As Collection
+'                Dim cyCuts As Collection
+'                Dim allCuts As Collection
+'                Dim segs As Collection
+'                Dim subSeg
+'
+'                Set rateCuts = BuildRateCuts(ctx.rateArr, s, e)
+'                Set mgrCuts = BuildMgrCuts(ctx.contractDate, ctx.mgrArr, s, e)
+'                Set cyCuts = BuildContractYearCuts(ctx.contractDate, s, e)
+'
+'                Set allCuts = MergeAndSortCuts(s, e, rateCuts, mgrCuts, cyCuts)
+'                Set segs = SplitPeriodByCuts(allCuts)
+'
+'                For Each subSeg In segs
+'                    AccumulateSegment ctx, CDbl(subSeg(0)), CDbl(subSeg(1)), CDbl(seg(2)), yearSum
+'                Next
+'            End If
+'        Next i
+'        
+'
+'
+'        totalFactor = totalFactor * (1 + yearSum / yearDays)
+'
+'        If ctx.debugMode Then
+'            ctx.wsDebug.Cells(ctx.debugRow, 1).Resize(1, 19).Value = _
+'                Array("YEAR_END", ctx.plyNo, ctx.depositSeq, ctx.yearIdx, "", "", yearEnd, yearDays, "", "", "", "", "", , , yearSum, ctx.principal, totalFactor, ctx.principal * totalFactor)
+'            ctx.debugRow = ctx.debugRow + 1
+'        End If
+'
+'        yearStart = yearEnd
+'        ctx.yearIdx = ctx.yearIdx + 1
+'    Loop
+'
+'    CalcFactor_ByYear = totalFactor
+'End Function
+
+
+'Private Sub AccumulateSegment( _
+'    ctx As calcContext, _
+'    segFrom As Date, _
+'    segTo As Date, _
+'    baseRate As Double, _
+'    ByRef yearSum As Double _
+')
+'
+'    Dim days As Long
+'    days = DateDiff("d", segFrom, segTo)    ' ★ [from, to)
+'
+'    If Not ctx.isFirstSegInYear Then
+'        days = days + 1
+'    End If
+'    
+'    Call ApplyRateAdjustForDate(ctx, segFrom)
+'
+'    Dim mgrRate As Double: mgrRate = 0#
+'    If Not ctx.mgrArr Is Nothing Then
+'        mgrRate = GetMGR(ctx.mgrArr, ctx.contractDate, segFrom)
+'    End If
+'
+'    Dim appliedRate As Double
+'    appliedRate = Application.Max((baseRate + ctx.rateAdd) * ctx.rateMul, mgrRate)
+'
+'    Dim acc As Double
+'    acc = appliedRate * days
+'    yearSum = yearSum + acc
+'
+'    Dim elapsedY As Long
+'    elapsedY = ElapsedYears(ctx.contractDate, segFrom)
+'
+'    If ctx.debugMode Then
+'        ctx.wsDebug.Cells(ctx.debugRow, 1).Resize(1, 16).Value = _
+'            Array("DETAIL", ctx.plyNo, ctx.depositSeq, ctx.yearIdx, elapsedY, _
+'                  segFrom, segTo, days, baseRate, ctx.rateAdd, ctx.rateMul, (baseRate + ctx.rateAdd) * ctx.rateMul, mgrRate, appliedRate, acc, yearSum)
+'        ctx.debugRow = ctx.debugRow + 1
+'    End If
+'    
+'    ctx.isFirstSegInYear = False
+'    
+'End Sub

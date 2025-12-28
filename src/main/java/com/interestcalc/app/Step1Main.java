@@ -11,12 +11,14 @@ import com.interestcalc.domain.Contract;
 import com.interestcalc.domain.Deposit;
 import com.interestcalc.domain.Expense;
 import com.interestcalc.domain.MinGuaranteedRateSegment;
+import com.interestcalc.domain.RateAdjustRule;
 import com.interestcalc.domain.RateSegment;
 import com.interestcalc.domain.Step1Summary;
 import com.interestcalc.loader.ContractCsvLoader;
 import com.interestcalc.loader.DepositCsvLoader;
 import com.interestcalc.loader.ExpenseCsvLoader;
 import com.interestcalc.loader.MinGuaranteedRateCsvLoader;
+import com.interestcalc.loader.RateAdjustCsvLoader;
 import com.interestcalc.loader.RateCsvLoader;
 import com.interestcalc.loader.Step1SummaryCsvLoader;
 import com.interestcalc.loader.Step1SummaryCsvWriter;
@@ -24,6 +26,8 @@ import com.interestcalc.loader.Step2DetailCsvWriter;
 import com.interestcalc.loader.Step2SummaryCsvWriter;
 import com.interestcalc.loader.Step3DetailCsvWriter;
 import com.interestcalc.loader.Step3SummaryCsvWriter;
+import com.interestcalc.rate.RateAdjustDecision;
+import com.interestcalc.rate.RateAdjustResolver;
 import com.interestcalc.service.Step1Service;
 import com.interestcalc.service.Step2Service;
 import com.interestcalc.service.Step3Service;
@@ -60,9 +64,25 @@ public class Step1Main {
 
         Map<String, List<MinGuaranteedRateSegment>> mgrMap = MinGuaranteedRateCsvLoader.load(Path.of("data/mgr.csv"));
 
+        Map<String, List<RateAdjustRule>> rateAdjustMap = RateAdjustCsvLoader.load(Path.of("data/rateadjust.csv"));
+
         List<Deposit> deposits = DepositCsvLoader.load(Path.of("data/deposit.csv"));
 
         Map<String, Expense> expenseMap = ExpenseCsvLoader.load(Path.of("data/expense.csv"));
+
+        rateAdjustMap.forEach((k, v) -> {
+            System.out.println("RATE_CODE=" + k + " count=" + v.size());
+            // System.out.println(k + " " + v);
+        });
+
+        RateAdjustResolver resolver = new RateAdjustResolver(rateAdjustMap);
+        RateAdjustDecision d = resolver.resolve("00001", 12);
+        System.out.println("rule=" + d.rule + ", adj=" + d.adj);
+        // 예시
+        System.out.println(resolver.resolve("00001", 1)); // sub: rule=2 adj=3
+        System.out.println(resolver.resolve("00001", 7)); // sub: rule=2 adj=1
+        System.out.println(resolver.resolve("00001", 12)); // sub: rule=3 adj=1.25
+        System.out.println(resolver.resolve("00005", 5)); // base: rule=2 adj=2
 
         // =====================================================
         // Service

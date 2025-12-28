@@ -36,7 +36,8 @@ public class CalcContext {
     public List<RateSegment> rateArr; // 기준이율 구간
     public List<MinGuaranteedRateSegment> mgrArr; // 최저보증이율 구간
     public double rateAdj; // 가산/차감 이율 (기본 0)
-
+    public double rateMul = 1.0; // 배율
+    public double rateAdd = 0.0; // 가감
     /*
      * =========================
      * 디버그 제어
@@ -44,8 +45,6 @@ public class CalcContext {
      */
     public boolean debugMode = false;
     public int yearIdx = 1;
-
-    // VBA ctx.isFirstSegInYear 대응
     public boolean isFirstSegInYear = true;
 
     /*
@@ -55,6 +54,8 @@ public class CalcContext {
      */
     public CalcContext() {
         this.rateAdj = 0.0;
+        this.rateMul = 1.0;
+        this.rateAdd = 0.0;
     }
 
     /*
@@ -70,7 +71,12 @@ public class CalcContext {
 
         for (RateSegment seg : rateArr) {
             if (seg.contains(date)) {
-                return seg.getRate() + rateAdj;
+                double base = seg.getRate();
+                // 🔴 기존
+                // return base + rateAdj;
+
+                // 🟢 변경: 곱 → 더하기
+                return base * rateMul + rateAdd;
             }
         }
 
