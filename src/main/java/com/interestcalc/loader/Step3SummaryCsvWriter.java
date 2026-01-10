@@ -2,6 +2,7 @@ package com.interestcalc.loader;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -15,7 +16,7 @@ public class Step3SummaryCsvWriter {
 
         try (BufferedWriter bw = Files.newBufferedWriter(out)) {
 
-            // ===== Header (VBA Step3_Summary 대응) =====
+            // ===== Header =====
             bw.write(String.join(",",
                     "PLYNO",
                     "BALANCE",
@@ -27,9 +28,15 @@ public class Step3SummaryCsvWriter {
             bw.newLine();
 
             for (Step3Summary r : rows) {
+
+                // 🔥 핵심: balance는 BigDecimal → toPlainString
+                String balanceStr = BigDecimal
+                        .valueOf(r.balance())
+                        .toPlainString();
+
                 bw.write(String.join(",",
                         CsvUtil.s(r.plyNo()),
-                        CsvUtil.n(r.balance()),
+                        balanceStr,
                         CsvUtil.d(r.calcBaseDate()),
                         CsvUtil.s(r.rateCode()),
                         CsvUtil.s(r.productCode()),

@@ -2,140 +2,185 @@ package com.interestcalc.calc;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import com.interestcalc.domain.MinGuaranteedRateSegment;
 import com.interestcalc.domain.RateAdjustRule;
+import com.interestcalc.domain.RateSegment;
+import com.interestcalc.util.DateUtil;
 
 /**
- * VBA modSegmentBuilder 이식
+ * VBA CalcFactor_ByYear 내부 cur-loop 1:1 이식
  *
- * 역할:
- * - RateAdjust / MGR 기준 경과연 컷 수집
- * - contractDate 기준 yyyy 경계일 생성
- * - from/to + 컷 병합 후 정렬
- * - [from, to] 기간을 sub-segment로 분할
+ * 규칙:
+ * - intFrom ~ intTo (inclusive)
+ * - days 계산/보정 없음
+ * - 경계는 Rate / MGR / RateAdjust / yearEnd 만 사용
  */
 public class SegmentBuilder {
 
-    // =====================================================
-    // 내부 DateSegment (from ~ to)
-    // =====================================================
     public static class DateSegment {
-        public final LocalDate fromDate;
-        public final LocalDate toDate;
+        public final LocalDate intFrom;
+        public final LocalDate intTo;
+        public final double baseRate;
+        public final double mgrRate;
 
-        public DateSegment(LocalDate fromDate, LocalDate toDate) {
-            this.fromDate = fromDate;
-            this.toDate = toDate;
+        public DateSegment(LocalDate intFrom, LocalDate intTo,
+                double baseRate, double mgrRate) {
+            this.intFrom = intFrom;
+            this.intTo = intTo;
+            this.baseRate = baseRate;
+            this.mgrRate = mgrRate;
         }
     }
 
-    // =====================================================
-    // 1. CollectElapsedYearCuts
-    // VBA: CollectElapsedYearCuts
-    // =====================================================
+    public static List<DateSegment> buildYearSegments(
+            LocalDate yearStart,
+            LocalDate yearEnd,
+            LocalDate contractDate,
+            List<RateSegment> rateArr,
+            List<MinGuaranteedRateSegment> mgrArr,
+            List<RateAdjustRule> rateAdjustRules) {
+
+        List<DateSegment> result = new ArrayList<>();
+
+        // VBA: cur = DateAdd("d", 1, yearStart)
+        LocalDate cur = yearStart.plusDays(1);
+
+        while (!cur.isAfter(yearEnd)) {
+
+            RateSeg rateSeg = findRateSeg(rateArr, cur);
+            if (rateSeg == null)
+                break;
+
+            MgrSeg mgrSeg = findMgrSeg(mgrArr, contractDate, cur);
+
+            LocalDate nextElapsedCut = getNextElapsedYearCut(rateAdjustRules, mgrArr, contractDate, cur);
+
+            LocalDate next = min(
+                    rateSeg.to.plusDays(1),
+                    mgrSeg.to.plusDays(1),
+                    nextElapsedCut,
+                    yearEnd.plusDays(1));
+
+            LocalDate intFrom = cur;
+            LocalDate intTo = next.minusDays(1);
+            if (intTo.isAfter(yearEnd))
+                intTo = yearEnd;
+
+            if (!intFrom.isAfter(intTo)) {
+                result.add(new DateSegment(
+                        intFrom, intTo, rateSeg.rate, mgrSeg.rate));
+            }
+
+            cur = next;
+        }
+
+        return result;
+    }
+
+    // ===== helpers =====
+
+    private static class RateSeg {
+        LocalDate to;
+        double rate;
+    }
+
+    private static RateSeg findRateSeg(List<RateSegment> rateArr, LocalDate asOf) {
+        for (RateSegment r : rateArr) {
+            if (!asOf.isBefore(r.getFromDate())
+                    && !asOf.isAfter(r.getToDate())) {
+                RateSeg rs = new RateSeg();
+                rs.to = r.getToDate();
+                rs.rate = r.getRate();
+                return rs;
+            }
+        }
+        return null;
+    }
+
+    private static class MgrSeg {
+        LocalDate to;
+        double rate;
+    }
+
+    private static MgrSeg findMgrSeg(
+            List<MinGuaranteedRateSegment> mgrArr,
+            LocalDate contractDate,
+            LocalDate asOf) {
+
+        MgrSeg res = new MgrSeg();
+        res.rate = 0.0;
+        res.to = LocalDate.of(9999, 12, 31);
+
+        if (mgrArr == null)
+            return res;
+
+        long y = DateUtil.elapsedYears(contractDate, asOf);
+
+        for (MinGuaranteedRateSegment seg : mgrArr) {
+            if (y >= seg.getYearFrom() && y <= seg.getYearTo()) {
+                res.rate = seg.getRate();
+                res.to = contractDate
+                        .plusYears(seg.getYearTo() + 1)
+                        .minusDays(1);
+                return res;
+            }
+        }
+        return res;
+    }
+
+    private static LocalDate getNextElapsedYearCut(
+            List<RateAdjustRule> rateAdjustRules,
+            List<MinGuaranteedRateSegment> mgrArr,
+            LocalDate contractDate,
+            LocalDate cur) {
+
+        LocalDate next = LocalDate.of(9999, 12, 31);
+        Set<Integer> years = SegmentBuilder.collectElapsedYearCuts(rateAdjustRules, mgrArr);
+
+        for (Integer y : years) {
+            LocalDate d = contractDate.plusYears(y).plusDays(1);
+            if (d.isAfter(cur) && d.isBefore(next)) {
+                next = d;
+            }
+        }
+        return next;
+    }
+
     public static Set<Integer> collectElapsedYearCuts(
             List<RateAdjustRule> rateAdjustRules,
             List<MinGuaranteedRateSegment> mgrArr) {
 
-        Set<Integer> yearSet = new LinkedHashSet<>();
+        java.util.LinkedHashSet<Integer> set = new java.util.LinkedHashSet<>();
 
-        // ---- RateAdjust ----
         if (rateAdjustRules != null) {
             for (RateAdjustRule r : rateAdjustRules) {
                 if (r.hasYearRange()) {
-                    yearSet.add(r.getYearFrom());
+                    set.add(r.getYearFrom());
                 }
             }
         }
 
-        // ---- MGR ----
         if (mgrArr != null) {
-            for (MinGuaranteedRateSegment seg : mgrArr) {
-                yearSet.add(seg.getYearFrom());
+            for (MinGuaranteedRateSegment m : mgrArr) {
+                set.add(m.getYearFrom());
             }
         }
-
-        return yearSet;
+        return set;
     }
 
-    // =====================================================
-    // 2. BuildElapsedYearCuts
-    // VBA: BuildElapsedYearCuts
-    // =====================================================
-    public static List<LocalDate> buildElapsedYearCuts(
-            LocalDate contractDate,
-            Set<Integer> yearSet,
-            LocalDate fromDate,
-            LocalDate toDate) {
+    private static LocalDate min(
+            LocalDate a, LocalDate b, LocalDate c, LocalDate d) {
 
-        List<LocalDate> cuts = new ArrayList<>();
-
-        for (Integer y : yearSet) {
-            LocalDate cutDate = contractDate.plusYears(y);
-            if (cutDate.isAfter(fromDate) && cutDate.isBefore(toDate)) {
-                cuts.add(cutDate);
-            }
-        }
-
-        return cuts;
-    }
-
-    // =====================================================
-    // 3. MergeAndSortCuts
-    // VBA: MergeAndSortCuts
-    // =====================================================
-    public static List<LocalDate> mergeAndSortCuts(
-            LocalDate fromDate,
-            LocalDate toDate,
-            List<LocalDate> extraCuts) {
-
-        Set<LocalDate> set = new LinkedHashSet<>();
-
-        set.add(fromDate);
-        set.add(toDate);
-
-        if (extraCuts != null) {
-            set.addAll(extraCuts);
-        }
-
-        List<LocalDate> res = new ArrayList<>(set);
-        Collections.sort(res);
-
-        return res;
-    }
-
-    // =====================================================
-    // 4. SplitPeriodByCuts
-    // VBA: SplitPeriodByCuts
-    // =====================================================
-    public static List<DateSegment> splitPeriodByCuts(
-            List<LocalDate> cuts) {
-
-        List<DateSegment> segs = new ArrayList<>();
-
-        for (int i = 0; i < cuts.size() - 1; i++) {
-
-            LocalDate from = cuts.get(i);
-            LocalDate to;
-
-            if (i < cuts.size() - 2) {
-                // 다음 컷의 전날까지
-                to = cuts.get(i + 1).minusDays(1);
-            } else {
-                // 마지막 구간은 그대로
-                to = cuts.get(i + 1);
-            }
-
-            if (!from.isAfter(to)) {
-                segs.add(new DateSegment(from, to));
-            }
-        }
-
-        return segs;
+        LocalDate m = a;
+        if (b.isBefore(m))
+            m = b;
+        if (c.isBefore(m))
+            m = c;
+        if (d.isBefore(m))
+            m = d;
+        return m;
     }
 }

@@ -116,6 +116,9 @@ public class Step1Service {
                                                 dep.getDepositDate(),
                                                 step1EndDate);
 
+                                if (ctx.debugMode) {
+                                        debugRows.addAll(ctx.debugRows);
+                                }
                                 double balance = dep.getPrincipal() * factor;
                                 totalBalance += balance;
 

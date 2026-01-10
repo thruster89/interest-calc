@@ -32,9 +32,9 @@ public class InterestCalcMain {
                 // Run params (VBA Run 시트 대응)
                 // ====================================
                 CalcRunContext runCtx = new CalcRunContext(
-                                "ONE", // runMode: ALL | ONE
-                                "282120090000065", // targetPlyNo
-                                CalcBaseDateType.FIXED, // FIXED | CONTRACT
+                                "ALL", // runMode: ALL | ONE
+                                "282120090000067", // targetPlyNo
+                                CalcBaseDateType.CONTRACT, // FIXED | CONTRACT
                                 LocalDate.of(2025, 12, 31), // fixedBaseDate
                                 2025, // contractYear (CONTRACT일 때만 의미)
                                 true // debugMode

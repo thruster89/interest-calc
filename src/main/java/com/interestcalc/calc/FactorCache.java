@@ -12,17 +12,26 @@ public class FactorCache {
 
     public static double getFactor(
             CalcContext ctx,
-            LocalDate start,
-            LocalDate end) {
+            LocalDate startDate,
+            LocalDate endDate) {
 
-        FactorKey key = new FactorKey(ctx.plyNo, start, end);
+        // 🔴 DEBUG MODE → 캐시 무시
+        if (ctx.debugMode) {
+            return CalcFactorByYear.calc(ctx, startDate, endDate);
+        }
+
+        FactorKey key = new FactorKey(
+                ctx.plyNo,
+                ctx.depositSeq,
+                startDate,
+                endDate);
 
         Double cached = CACHE.get(key);
         if (cached != null) {
             return cached;
         }
 
-        double factor = CalcFactorByYear.calc(ctx, start, end);
+        double factor = CalcFactorByYear.calc(ctx, startDate, endDate);
         CACHE.put(key, factor);
         return factor;
     }

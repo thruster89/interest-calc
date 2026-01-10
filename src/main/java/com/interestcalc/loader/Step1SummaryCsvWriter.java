@@ -2,6 +2,7 @@ package com.interestcalc.loader;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -15,7 +16,7 @@ public class Step1SummaryCsvWriter {
 
         try (BufferedWriter bw = Files.newBufferedWriter(out)) {
 
-            // ===== Header (VBA Step1_Summary 동일) =====
+            // ===== Header =====
             bw.write(String.join(",",
                     "PLYNO",
                     "NET_BALANCE",
@@ -33,9 +34,14 @@ public class Step1SummaryCsvWriter {
 
             // ===== Rows =====
             for (Step1Summary r : rows) {
+
+                String netBalanceStr = BigDecimal.valueOf(r.netBalance).toPlainString();
+                String totalBalanceStr = BigDecimal.valueOf(r.totalBalance).toPlainString();
+                String dedAmtLastStr = BigDecimal.valueOf(r.dedAmtLast).toPlainString();
+
                 bw.write(String.join(",",
                         CsvUtil.s(r.plyNo),
-                        CsvUtil.n(r.netBalance),
+                        netBalanceStr,
                         CsvUtil.d(r.step1EndDate),
                         CsvUtil.d(r.annuityDate),
                         CsvUtil.d(r.contractDate),
@@ -44,8 +50,8 @@ public class Step1SummaryCsvWriter {
                         CsvUtil.s(r.expenseKey),
                         CsvUtil.i(r.annuityTerm),
                         CsvUtil.d(r.insEndDate),
-                        CsvUtil.n(r.totalBalance),
-                        CsvUtil.n(r.dedAmtLast)));
+                        totalBalanceStr,
+                        dedAmtLastStr));
                 bw.newLine();
             }
         }

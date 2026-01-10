@@ -1,6 +1,7 @@
 package com.interestcalc.context;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.interestcalc.domain.CalcDebugRow;
@@ -62,7 +63,7 @@ public class CalcContext {
      */
     public boolean debugMode = false;
     public String applyTag;
-    public List<CalcDebugRow> debugRows;
+    public List<CalcDebugRow> debugRows = new ArrayList<>();
 
     /*
      * =========================
