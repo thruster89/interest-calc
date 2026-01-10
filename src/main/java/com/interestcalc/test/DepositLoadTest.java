@@ -1,4 +1,4 @@
-package com.interestcalc.app;
+package com.interestcalc.test;
 
 import java.nio.file.Path;
 import java.util.List;

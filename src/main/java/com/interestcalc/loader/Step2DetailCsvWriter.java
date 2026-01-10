@@ -6,28 +6,36 @@ import java.nio.file.Path;
 import java.util.List;
 
 import com.interestcalc.domain.Step2Detail;
+import com.interestcalc.util.CsvUtil;
 
 public class Step2DetailCsvWriter {
 
     public static void write(Path path, List<Step2Detail> list) throws Exception {
 
-        try (BufferedWriter bw = Files.newBufferedWriter(path)) {
+        try (BufferedWriter w = Files.newBufferedWriter(path)) {
 
-            bw.write("PLYNO,FROM_DATE,TO_DATE,BEGIN_BAL,ANNUAL_EXP,MONTHLY_EXP,INTEREST,END_BAL,FACTOR");
-            bw.newLine();
+            w.write(String.join(",",
+                    "PLYNO",
+                    "FROM_DATE",
+                    "TO_DATE",
+                    "BEGIN_BALANCE",
+                    "ANNUAL_EXPENSE",
+                    "BASE_AFTER_ANNUAL",
+                    "FACTOR",
+                    "END_BALANCE"));
+            w.newLine();
 
             for (Step2Detail d : list) {
-                bw.write(String.join(",",
-                        d.plyNo,
-                        d.fromDate.toString(),
-                        d.toDate.toString(),
-                        String.valueOf(d.beginBalance),
-                        String.valueOf(d.annualExpense),
-                        String.valueOf(d.monthlyExpense),
-                        String.valueOf(d.interest),
-                        String.valueOf(d.endBalance),
-                        String.valueOf(d.factor)));
-                bw.newLine();
+                w.write(String.join(",",
+                        CsvUtil.s(d.plyNo),
+                        CsvUtil.fmt(d.fromDate),
+                        CsvUtil.fmt(d.toDate),
+                        CsvUtil.fmt(d.beginBalance),
+                        CsvUtil.fmt(d.annualExpense),
+                        CsvUtil.fmt(d.baseAfterAnnual),
+                        CsvUtil.fmt(d.factor),
+                        CsvUtil.fmt(d.endBalance)));
+                w.newLine();
             }
         }
     }

@@ -5,229 +5,209 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.interestcalc.calc.FactorCache;
-import com.interestcalc.context.CalcBaseDateType;
+import com.interestcalc.calc.CalcBaseDateResolver;
+import com.interestcalc.calc.CalcFactorByYear;
 import com.interestcalc.context.CalcContext;
+import com.interestcalc.context.CalcRunContext;
+import com.interestcalc.domain.CalcDebugRow;
 import com.interestcalc.domain.Expense;
 import com.interestcalc.domain.MinGuaranteedRateSegment;
+import com.interestcalc.domain.RateAdjustRule;
 import com.interestcalc.domain.RateSegment;
 import com.interestcalc.domain.Step1Summary;
 import com.interestcalc.domain.Step2Detail;
+import com.interestcalc.domain.Step2ExpDetail;
 import com.interestcalc.domain.Step2Summary;
 import com.interestcalc.util.DateUtil;
 
 public class Step2Service {
 
-        // ============================
-        // Result container
-        // ============================
-        public static class Result {
-                public List<Step2Detail> details = new ArrayList<>();
-                public List<Step2Summary> summaries = new ArrayList<>();
-        }
+        private final Map<String, List<RateSegment>> rateMap;
+        private final Map<String, List<MinGuaranteedRateSegment>> mgrMap;
+        private final Map<String, List<RateAdjustRule>> rateAdjustMap;
+        private final Map<String, Expense> expenseMap;
 
-        // ============================
-        // Main entry
-        // ============================
-        public Result run(
-                        List<Step1Summary> inputs,
+        public Step2Service(
                         Map<String, List<RateSegment>> rateMap,
                         Map<String, List<MinGuaranteedRateSegment>> mgrMap,
-                        Map<String, Expense> expenseMap,
-                        String runMode,
-                        String targetPlyNo,
-                        CalcBaseDateType baseDateType,
-                        LocalDate calcBaseDate,
-                        int calcBaseYear,
-                        boolean debugMode) {
+                        Map<String, List<RateAdjustRule>> rateAdjustMap,
+                        Map<String, Expense> expenseMap) {
 
-                Result result = new Result();
+                this.rateMap = rateMap;
+                this.mgrMap = mgrMap;
+                this.rateAdjustMap = rateAdjustMap;
+                this.expenseMap = expenseMap;
+        }
 
-                for (Step1Summary s1 : inputs) {
+        public record Result(
+                        List<Step2Detail> details,
+                        List<Step2ExpDetail> expDetails,
+                        List<Step2Summary> summaries,
+                        List<CalcDebugRow> debugRows) {
+        }
 
-                        String plyNo = s1.plyNo;
+        public Result run(
+                        CalcRunContext runCtx,
+                        List<Step1Summary> step1Summaries) {
 
-                        if ("ONE".equals(runMode) && !plyNo.equals(targetPlyNo)) {
+                List<Step2Detail> details = new ArrayList<>();
+                List<Step2ExpDetail> expDetails = new ArrayList<>();
+                List<Step2Summary> summaries = new ArrayList<>();
+                List<CalcDebugRow> allDebugRows = runCtx.debugMode ? new ArrayList<>() : List.of();
+
+                // =================================================
+                // Loop contracts (Step1_Summary 기준)
+                // =================================================
+                for (Step1Summary s : step1Summaries) {
+
+                        // ---- step2End = MIN(calcBaseDate, annuityDate)
+                        LocalDate step2End = CalcBaseDateResolver.resolve(runCtx, s.contractDate);
+                        if (step2End.isAfter(s.annuityDate)) {
+                                step2End = s.annuityDate;
+                        }
+                        if (!step2End.isAfter(s.step1EndDate)) {
                                 continue;
                         }
 
-                        // ============================
-                        // 기간 결정
-                        // ============================
-                        LocalDate step2End = calcBaseDate;
-                        if (step2End.isAfter(s1.annuityDate)) {
-                                step2End = s1.annuityDate;
+                        Expense exp = expenseMap.get(s.expenseKey);
+                        if (exp == null) {
+                                throw new IllegalStateException(
+                                                "Expense not found: " + s.expenseKey);
                         }
 
-                        if (!step2End.isAfter(s1.step1EndDate)) {
-                                Step2Summary sum = new Step2Summary();
+                        // =================================================
+                        // ctx (계약당 1개) ★★★ 절대 재생성 안 함 ★★★
+                        // =================================================
+                        CalcContext ctx = new CalcContext();
+                        ctx.plyNo = s.plyNo;
+                        ctx.contractDate = s.contractDate;
+                        ctx.rateArr = rateMap.get(s.rateCode);
+                        ctx.mgrArr = mgrMap.get(s.productCode);
+                        ctx.rateAdjustRules = rateAdjustMap.get(s.rateCode);
+                        ctx.debugMode = runCtx.debugMode;
+                        ctx.applyTag = "STEP2";
 
-                                sum.plyNo = s1.plyNo;
-                                sum.balance = s1.balance; // ★ Step2 결과
-                                sum.calcBaseDate = step2End; // ★ Step2 종료일
-
-                                sum.annuityDate = s1.annuityDate;
-                                sum.insStartDate = s1.contractDate;
-                                sum.insClusterDate = s1.insEndDate;
-
-                                sum.rateCode = s1.rateCode;
-                                sum.productCode = s1.productCode;
-                                sum.expenseKey = s1.expenseKey;
-                                sum.annuityTerm = s1.annuityTerm;
-
-                                result.summaries.add(sum);
-                                continue;
+                        if (ctx.debugMode) {
+                                ctx.debugRows = new ArrayList<>();
                         }
 
-                        // ============================
-                        // Master lookup
-                        // ============================
-                        List<RateSegment> rateArr = rateMap.get(s1.rateCode);
-                        List<MinGuaranteedRateSegment> mgrArr = mgrMap.get(s1.productCode);
-                        Expense exp = expenseMap.get(s1.expenseKey);
+                        // =================================================
+                        // (A) 월 사업비 CF
+                        // =================================================
+                        double totalMonthlyExpenseAcc = 0.0;
+                        LocalDate mStart = s.step1EndDate;
+                        int chargeDay = s.contractDate.getDayOfMonth();
+                        long expSeq = 1;
 
-                        if (rateArr == null)
-                                throw new RuntimeException("Rate not found: " + s1.rateCode);
-                        if (exp == null)
-                                throw new RuntimeException("Expense not found: " + s1.expenseKey);
+                        if (exp.monthlyAmount != 0.0) {
 
-                        // ============================
-                        // 연 단위 기준 원금
-                        // ============================
-                        double basePrincipal = s1.balance;
-                        // double accInterest = 0.0;
-                        // double accExpense = 0.0;
+                                while (mStart.isBefore(step2End)) {
 
-                        LocalDate yearStartDate = s1.step1EndDate; // ★ 연초 고정
-                        LocalDate curDate = s1.step1EndDate;
+                                        double expAmt = -exp.monthlyAmount;
+                                        ctx.applyTag = "EXP_M";
+                                        ctx.principal = expAmt;
 
-                        int contractDay = s1.contractDate.getDayOfMonth();
-                        int contractMonth = s1.contractDate.getMonthValue();
+                                        double factor = CalcFactorByYear.calc(
+                                                        ctx,
+                                                        mStart,
+                                                        step2End);
 
-                        if (debugMode) {
-                                System.out.println("\n================ STEP2 START =================");
-                                System.out.println("PLYNO=" + plyNo);
-                                System.out.println("BASE_PRINCIPAL=" + basePrincipal);
-                                System.out.println("FROM=" + curDate + " TO=" + step2End);
+                                        double accAmt = expAmt * factor;
+
+                                        expDetails.add(new Step2ExpDetail(
+                                                        s.plyNo,
+                                                        expSeq,
+                                                        mStart,
+                                                        expAmt,
+                                                        factor,
+                                                        accAmt,
+                                                        step2End));
+
+                                        totalMonthlyExpenseAcc += accAmt;
+                                        expSeq++;
+
+                                        // ★ VBA NextMonthlyDate 그대로
+                                        mStart = DateUtil.nextMonthlyDate(mStart, chargeDay);
+                                }
                         }
 
-                        // ============================
-                        // Monthly loop
-                        // ============================
-                        while (curDate.isBefore(step2End)) {
+                        // =================================================
+                        // (B) 연 기준 스냅샷
+                        // =================================================
+                        double bal = s.netBalance;
+                        LocalDate yearStart = s.step1EndDate;
 
-                                LocalDate nextDate = DateUtil.nextMonthlyDate(curDate, contractDay);
-                                if (nextDate.isAfter(step2End)) {
-                                        nextDate = step2End;
+                        while (yearStart.isBefore(step2End)) {
+
+                                LocalDate yearEnd = yearStart.plusYears(1);
+                                if (yearEnd.isAfter(step2End)) {
+                                        yearEnd = step2End;
                                 }
 
-                                // ----------------------------
-                                // Expense
-                                // ----------------------------
-                                double monthlyExp = exp.monthlyAmount;
-                                double annualExp;
+                                double baseBalYear = bal;
+                                double annualCF = 0.0;
 
-                                // accExpense += monthlyExp;
+                                int expectedDay = DateUtil.clampDayToEOM(
+                                                yearStart.getYear(),
+                                                yearStart.getMonthValue(),
+                                                chargeDay);
 
-                                // 연 사업비: 계약 MM-DD
-                                int cd = DateUtil.clampDayToEOM(
-                                                curDate.getYear(),
-                                                contractMonth,
-                                                contractDay);
-
-                                annualExp = basePrincipal * exp.yearlyRate * 0.01;
-                                // accExpense += annualExp;
-                                // }
-
-                                // ----------------------------
-                                // Interest
-                                // ----------------------------
-                                CalcContext ctx = new CalcContext();
-                                ctx.plyNo = plyNo;
-                                ctx.contractDate = s1.contractDate;
-                                ctx.rateArr = rateArr;
-                                ctx.mgrArr = mgrArr;
-                                ctx.principal = basePrincipal;
-                                ctx.rateAdj = 0.0;
-                                ctx.debugMode = debugMode;
-
-                                double factor = FactorCache.getFactor(ctx, yearStartDate, nextDate);
-                                double interest = (basePrincipal - annualExp) * (factor - 1.0);
-                                // accInterest += interest;
-
-                                double endBal = basePrincipal - annualExp + interest;
-
-                                // ----------------------------
-                                // Detail
-                                // ----------------------------
-                                Step2Detail d = new Step2Detail();
-                                d.plyNo = plyNo;
-                                d.fromDate = curDate;
-                                d.toDate = nextDate;
-                                d.beginBalance = basePrincipal;
-                                d.annualExpense = annualExp;
-                                d.monthlyExpense = monthlyExp;
-                                d.interest = interest;
-                                d.endBalance = endBal;
-                                d.factor = factor;
-
-                                result.details.add(d);
-
-                                if (debugMode) {
-                                        System.out.printf(
-                                                        """
-                                                                        [M] %s ~ %s | BASE=%,.0f INT=%,.0f ANN_EXP=%,.0f MON_EXP=%,.0f END=%,.0f
-                                                                        """,
-                                                        curDate, nextDate,
-                                                        basePrincipal,
-                                                        interest,
-                                                        annualExp,
-                                                        monthlyExp,
-                                                        endBal);
+                                if (yearStart.getMonthValue() == s.contractDate.getMonthValue()
+                                                && yearStart.getDayOfMonth() == expectedDay) {
+                                        annualCF = -baseBalYear * exp.yearlyRate / 100.0;
                                 }
 
-                                // ----------------------------
-                                // 연 기준 원금 갱신
-                                // ----------------------------
-                                if (nextDate.getMonthValue() == contractMonth
-                                                && nextDate.getDayOfMonth() == cd) {
+                                double baseAfterAnnual = baseBalYear + annualCF;
 
-                                        basePrincipal = endBal;
-                                        // accInterest = 0.0;
-                                        // accExpense = 0.0;
-                                        yearStartDate = nextDate;
-                                        if (debugMode) {
-                                                System.out.println(">>> YEAR RESET");
-                                                System.out.println("NEW BASE=" + basePrincipal);
-                                        }
+                                ctx.applyTag = "Principal";
+                                ctx.principal = baseAfterAnnual;
 
-                                }
-                                curDate = nextDate;
+                                double factorYear = CalcFactorByYear.calc(
+                                                ctx,
+                                                yearStart,
+                                                yearEnd);
 
+                                double endBal = baseAfterAnnual * factorYear;
+
+                                details.add(new Step2Detail(
+                                                s.plyNo,
+                                                yearStart,
+                                                yearEnd,
+                                                baseBalYear,
+                                                annualCF,
+                                                baseAfterAnnual,
+                                                factorYear,
+                                                endBal));
+
+                                bal = endBal;
+                                yearStart = yearEnd;
                         }
 
-                        // ============================
+                        // =================================================
                         // Summary
-                        // ============================
-                        Step2Summary sum = new Step2Summary();
+                        // =================================================
+                        double baseEndBalance = bal;
+                        double finalEndBalance = baseEndBalance + totalMonthlyExpenseAcc;
 
-                        sum.plyNo = s1.plyNo;
-                        sum.balance = basePrincipal; // ★ Step2 결과
-                        sum.calcBaseDate = step2End; // ★ Step2 종료일
+                        summaries.add(new Step2Summary(
+                                        s.plyNo,
+                                        finalEndBalance,
+                                        step2End,
+                                        s.annuityDate,
+                                        s.rateCode,
+                                        s.productCode,
+                                        s.expenseKey,
+                                        s.annuityTerm,
+                                        s.insEndDate,
+                                        s.contractDate,
+                                        baseEndBalance,
+                                        totalMonthlyExpenseAcc));
 
-                        sum.annuityDate = s1.annuityDate;
-                        sum.insStartDate = s1.contractDate;
-                        sum.insClusterDate = s1.insEndDate;
-
-                        sum.rateCode = s1.rateCode;
-                        sum.productCode = s1.productCode;
-                        sum.expenseKey = s1.expenseKey;
-                        sum.annuityTerm = s1.annuityTerm;
-
-                        result.summaries.add(sum);
-
+                        if (ctx.debugMode) {
+                                allDebugRows.addAll(ctx.debugRows);
+                        }
                 }
 
-                return result;
+                return new Result(details, expDetails, summaries, allDebugRows);
         }
 }

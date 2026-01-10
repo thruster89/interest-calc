@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.interestcalc.domain.RateSegment;
+import com.interestcalc.util.RateNormalizer;
 
 public class RateCsvLoader {
 
@@ -37,7 +38,8 @@ public class RateCsvLoader {
                 String rateCode = t[0].trim();
                 LocalDate from = LocalDate.parse(t[2].trim());
                 LocalDate to = LocalDate.parse(t[3].trim());
-                double rate = Double.parseDouble(t[4].trim());
+                double rawRate = Double.parseDouble(t[4].trim());
+                double rate = RateNormalizer.normalize(rawRate);
 
                 RateSegment seg = new RateSegment(from, to, rate);
 

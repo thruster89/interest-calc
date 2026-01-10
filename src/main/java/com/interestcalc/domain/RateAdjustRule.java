@@ -2,25 +2,26 @@ package com.interestcalc.domain;
 
 public class RateAdjustRule {
 
-    public String rateCode;
+    private final String rateCode;
 
-    public int baseRule; // 2: 차감, 3: 곱하기
-    public double baseAdj;
+    private final RateAdjustRuleType baseRule;
+    private final double baseAdj;
 
-    public Integer subRule; // null 이면 없음
-    public Double subAdj;
+    private final RateAdjustRuleType subRule;
+    private final double subAdj;
 
-    public Integer yearFrom;
-    public Integer yearTo;
+    private final Integer yearFrom;
+    private final Integer yearTo;
 
     public RateAdjustRule(
             String rateCode,
-            int baseRule,
+            RateAdjustRuleType baseRule,
             double baseAdj,
-            Integer subRule,
-            Double subAdj,
+            RateAdjustRuleType subRule,
+            double subAdj,
             Integer yearFrom,
             Integer yearTo) {
+
         this.rateCode = rateCode;
         this.baseRule = baseRule;
         this.baseAdj = baseAdj;
@@ -30,30 +31,48 @@ public class RateAdjustRule {
         this.yearTo = yearTo;
     }
 
-    public boolean hasSubRule() {
-        return subRule != null
-                && subAdj != null
-                && yearFrom != null
-                && yearTo != null;
+    public String getRateCode() {
+        return rateCode;
     }
 
-    public boolean isSubRuleApplicable(int elapsedYear) {
-        if (!hasSubRule())
-            return false;
-        return elapsedYear >= yearFrom && elapsedYear <= yearTo;
-    }
-
-    public int getEffectiveRule(int elapsedYear) {
-        if (isSubRuleApplicable(elapsedYear)) {
-            return subRule;
-        }
+    public RateAdjustRuleType getBaseRule() {
         return baseRule;
     }
 
-    public double getEffectiveAdj(int elapsedYear) {
-        if (isSubRuleApplicable(elapsedYear)) {
-            return subAdj;
-        }
+    public double getBaseAdj() {
         return baseAdj;
+    }
+
+    public RateAdjustRuleType getSubRule() {
+        return subRule;
+    }
+
+    public double getSubAdj() {
+        return subAdj;
+    }
+
+    public Integer getYearFrom() {
+        return yearFrom;
+    }
+
+    public Integer getYearTo() {
+        return yearTo;
+    }
+
+    public boolean hasSubRule() {
+        return subRule != RateAdjustRuleType.NONE;
+    }
+
+    /** VBA 기준: YEAR_FROM/YEAR_TO 존재 여부 */
+    public boolean hasYearRange() {
+        return yearFrom != null && yearTo != null;
+    }
+
+    /** 해당 경과연에 적용되는지 */
+    public boolean isApplicable(long elapsedYear) {
+        if (!hasYearRange()) {
+            return true; // VBA와 동일: SubRule 없으면 무조건 적용
+        }
+        return elapsedYear >= yearFrom && elapsedYear <= yearTo;
     }
 }

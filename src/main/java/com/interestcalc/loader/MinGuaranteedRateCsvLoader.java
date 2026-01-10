@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.interestcalc.domain.MinGuaranteedRateSegment;
+import com.interestcalc.util.RateNormalizer;
 
 public class MinGuaranteedRateCsvLoader {
 
@@ -36,7 +37,8 @@ public class MinGuaranteedRateCsvLoader {
                 String productCode = t[0].trim();
                 int yearFrom = Integer.parseInt(t[1].trim());
                 int yearTo = Integer.parseInt(t[2].trim());
-                double rate = Double.parseDouble(t[3].trim());
+                double rawRate = Double.parseDouble(t[3].trim());
+                double rate = RateNormalizer.normalize(rawRate);
 
                 MinGuaranteedRateSegment seg = new MinGuaranteedRateSegment(yearFrom, yearTo, rate);
 

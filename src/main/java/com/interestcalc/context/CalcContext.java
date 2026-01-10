@@ -3,12 +3,14 @@ package com.interestcalc.context;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.interestcalc.domain.CalcDebugRow;
 import com.interestcalc.domain.MinGuaranteedRateSegment;
+import com.interestcalc.domain.RateAdjustRule;
 import com.interestcalc.domain.RateSegment;
 
 /**
  * 계산 공용 Context
- * VBA calcContext 1:1 대응
+ * VBA calcContext 1:1 대응 (상태 보관 전용)
  */
 public class CalcContext {
 
@@ -17,35 +19,50 @@ public class CalcContext {
      * 식별 정보
      * =========================
      */
-    public String plyNo; // 증권번호
-    public long depositSeq; // 입금순번 (Step1)
-    public LocalDate contractDate; // 계약일자
+    public String plyNo;
+    public int depositSeq;
+    public LocalDate contractDate;
 
     /*
      * =========================
-     * 원금 / 잔액
+     * 금액
      * =========================
      */
-    public double principal; // 계산 기준 원금
+    public double principal;
 
     /*
      * =========================
-     * 이율 정보
+     * 이율 데이터
      * =========================
      */
-    public List<RateSegment> rateArr; // 기준이율 구간
-    public List<MinGuaranteedRateSegment> mgrArr; // 최저보증이율 구간
-    public double rateAdj; // 가산/차감 이율 (기본 0)
-    public double rateMul = 1.0; // 배율
-    public double rateAdd = 0.0; // 가감
+    public List<RateSegment> rateArr;
+    public List<MinGuaranteedRateSegment> mgrArr;
+    public List<RateAdjustRule> rateAdjustRules;
+
     /*
      * =========================
-     * 디버그 제어
+     * 이율 조정 상태 (세그먼트별)
+     * =========================
+     */
+    public double rateAdd = 0.0; // +/-
+    public double rateMul = 1.0; // ×
+
+    /*
+     * =========================
+     * 연 단위 추적
+     * =========================
+     */
+    public int yearIdx = 1;
+    public boolean isFirstSegInYear = true;
+
+    /*
+     * =========================
+     * 디버그
      * =========================
      */
     public boolean debugMode = false;
-    public int yearIdx = 1;
-    public boolean isFirstSegInYear = true;
+    public String applyTag;
+    public List<CalcDebugRow> debugRows;
 
     /*
      * =========================
@@ -53,67 +70,8 @@ public class CalcContext {
      * =========================
      */
     public CalcContext() {
-        this.rateAdj = 0.0;
-        this.rateMul = 1.0;
+        // 명시적 초기화
         this.rateAdd = 0.0;
-    }
-
-    /*
-     * =========================
-     * 기준이율 조회
-     * =========================
-     */
-    public double resolveBaseRate(LocalDate date) {
-
-        if (rateArr == null || rateArr.isEmpty()) {
-            throw new IllegalStateException("rateArr is empty");
-        }
-
-        for (RateSegment seg : rateArr) {
-            if (seg.contains(date)) {
-                double base = seg.getRate();
-                // 🔴 기존
-                // return base + rateAdj;
-
-                // 🟢 변경: 곱 → 더하기
-                return base * rateMul + rateAdd;
-            }
-        }
-
-        throw new IllegalStateException(
-                "Base rate not found for date: " + date);
-    }
-
-    /*
-     * =========================
-     * 최저보증이율 조회
-     * =========================
-     */
-    public double resolveMgrRate(int elapsedYear) {
-
-        if (mgrArr == null || mgrArr.isEmpty()) {
-            return 0.0;
-        }
-
-        for (MinGuaranteedRateSegment seg : mgrArr) {
-            if (seg.matches(elapsedYear)) {
-                return seg.getRate();
-            }
-        }
-
-        return 0.0;
-    }
-
-    /*
-     * =========================
-     * 적용이율 (max)
-     * =========================
-     */
-    public double resolveAppliedRate(LocalDate date, int elapsedYear) {
-
-        double baseRate = resolveBaseRate(date);
-        double mgrRate = resolveMgrRate(elapsedYear);
-
-        return Math.max(baseRate, mgrRate);
+        this.rateMul = 1.0;
     }
 }

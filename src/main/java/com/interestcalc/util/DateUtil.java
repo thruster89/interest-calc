@@ -30,6 +30,7 @@ public class DateUtil {
 
     /**
      * VBA NextMonthlyDate 대체
+     * * @param baseDate 기준일
      */
     public static LocalDate nextMonthlyDate(LocalDate base, int chargeDay) {
 
@@ -47,5 +48,27 @@ public class DateUtil {
     public static int clampDayToEOM(int year, int month, int day) {
         int eom = YearMonth.of(year, month).lengthOfMonth();
         return Math.min(day, eom);
+    }
+
+    public static LocalDate nextMonthSameDay(LocalDate base, int chargeDay) {
+        LocalDate nextMonth = base.plusMonths(1);
+        int lastDay = nextMonth.lengthOfMonth();
+        int day = Math.min(chargeDay, lastDay);
+        return LocalDate.of(
+                nextMonth.getYear(),
+                nextMonth.getMonth(),
+                day);
+    }
+
+    public static boolean isSameMonthDay(LocalDate date, LocalDate contractDate) {
+        int chargeMonth = contractDate.getMonthValue();
+        int chargeDay = contractDate.getDayOfMonth();
+
+        if (date.getMonthValue() != chargeMonth) {
+            return false;
+        }
+
+        int expectedDay = Math.min(chargeDay, date.lengthOfMonth());
+        return date.getDayOfMonth() == expectedDay;
     }
 }

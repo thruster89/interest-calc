@@ -1,4 +1,4 @@
-package com.interestcalc.app;
+package com.interestcalc.test;
 
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -15,9 +15,9 @@ public class RateLoadTest {
         Map<String, List<RateSegment>> rateMap = RateCsvLoader.load(Path.of("data/rate.csv"));
 
         // ===== 특정 RateCode 확인 =====
-        List<RateSegment> r01 = rateMap.get("R01");
+        List<RateSegment> r01 = rateMap.get("00010");
 
-        System.out.println("RateCode = R01");
+        System.out.println("RateCode = 00010");
         for (RateSegment seg : r01) {
             System.out.println(
                     seg.getFromDate() + " ~ " +

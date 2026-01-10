@@ -1,4 +1,4 @@
-package com.interestcalc.app;
+package com.interestcalc.test;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -14,9 +14,9 @@ public class MinGuaranteedRateLoadTest {
         Map<String, List<MinGuaranteedRateSegment>> mgrMap = MinGuaranteedRateCsvLoader.load(
                 Path.of("data/min_guaranteed_rate.csv"));
 
-        List<MinGuaranteedRateSegment> segs = mgrMap.get("P01");
+        List<MinGuaranteedRateSegment> segs = mgrMap.get("LA02821001");
 
-        System.out.println("ProductCode = P01");
+        System.out.println("ProductCode = LA02821001");
         for (MinGuaranteedRateSegment seg : segs) {
             System.out.println(
                     seg.getYearFrom() + " ~ " +

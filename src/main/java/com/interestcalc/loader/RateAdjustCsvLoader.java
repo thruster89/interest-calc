@@ -1,60 +1,56 @@
 package com.interestcalc.loader;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.interestcalc.domain.RateAdjustRule;
+import com.interestcalc.domain.RateAdjustRuleType;
 
-/**
- * RATE_ADJUST CSV Loader
- * BaseRule + (선택) SubRule 구조
- */
 public class RateAdjustCsvLoader {
 
-    public static Map<String, List<RateAdjustRule>> load(Path path) throws Exception {
+    public static Map<String, List<RateAdjustRule>> load(Path csvPath) throws IOException {
 
-        Map<String, List<RateAdjustRule>> map = new HashMap<>();
+        Map<String, List<RateAdjustRule>> map = new LinkedHashMap<>();
 
-        try (BufferedReader br = Files.newBufferedReader(path)) {
+        try (BufferedReader br = Files.newBufferedReader(csvPath)) {
 
             br.readLine(); // header skip
 
             String line;
             while ((line = br.readLine()) != null) {
-
-                if (line.isBlank())
+                if (line.trim().isEmpty())
                     continue;
 
-                String[] c = line.split(",");
+                String[] c = line.split(",", -1);
 
                 String rateCode = c[0].trim();
 
-                int baseRule = Integer.parseInt(c[1].trim());
-                double baseAdj = Double.parseDouble(c[2].trim());
+                int baseRule = parseInt(c[1]);
+                double baseAdj = parseDouble(c[2]);
 
-                Integer subRule = null;
-                Double subAdj = null;
+                int subRule = parseInt(c[3]);
+                double subAdj = parseDouble(c[4]);
+
+                RateAdjustRuleType subRuleType = RateAdjustRuleType.fromCode(subRule);
+
                 Integer yearFrom = null;
                 Integer yearTo = null;
 
-                // SubRule 존재 시만 처리
-                if (c.length >= 7 && !c[3].isBlank()) {
-                    subRule = Integer.valueOf(c[3].trim());
-                    subAdj = Double.valueOf(c[4].trim());
-                    yearFrom = Integer.valueOf(c[5].trim());
-                    yearTo = Integer.valueOf(c[6].trim());
+                if (subRuleType != RateAdjustRuleType.NONE) {
+                    yearFrom = parseInt(c[5]);
+                    yearTo = parseInt(c[6]);
                 }
-
                 RateAdjustRule rule = new RateAdjustRule(
                         rateCode,
-                        baseRule,
+                        RateAdjustRuleType.fromCode(baseRule),
                         baseAdj,
-                        subRule,
+                        RateAdjustRuleType.fromCode(subRule),
                         subAdj,
                         yearFrom,
                         yearTo);
@@ -63,6 +59,15 @@ public class RateAdjustCsvLoader {
                         .add(rule);
             }
         }
+
         return map;
+    }
+
+    private static int parseInt(String s) {
+        return (s == null || s.isBlank()) ? 0 : Integer.parseInt(s.trim());
+    }
+
+    private static double parseDouble(String s) {
+        return (s == null || s.isBlank()) ? 0.0 : Double.parseDouble(s.trim());
     }
 }

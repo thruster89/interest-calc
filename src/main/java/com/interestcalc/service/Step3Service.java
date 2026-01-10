@@ -5,178 +5,224 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.interestcalc.calc.FactorCache;
-import com.interestcalc.context.CalcBaseDateType;
+import com.interestcalc.calc.CalcBaseDateResolver;
+import com.interestcalc.calc.CalcFactorByYear;
 import com.interestcalc.context.CalcContext;
+import com.interestcalc.context.CalcRunContext;
+import com.interestcalc.domain.CalcDebugRow;
 import com.interestcalc.domain.Expense;
 import com.interestcalc.domain.MinGuaranteedRateSegment;
+import com.interestcalc.domain.RateAdjustRule;
 import com.interestcalc.domain.RateSegment;
 import com.interestcalc.domain.Step2Summary;
 import com.interestcalc.domain.Step3Detail;
 import com.interestcalc.domain.Step3Summary;
-import com.interestcalc.util.AnnuityUtil;
-import com.interestcalc.util.DateUtil;
 
 public class Step3Service {
 
-        // ============================
-        // Result container
-        // ============================
-        public static class Result {
-                public List<Step3Detail> details = new ArrayList<>();
-                public List<Step3Summary> summaries = new ArrayList<>();
-        }
+        private final Map<String, List<RateSegment>> rateMap;
+        private final Map<String, List<MinGuaranteedRateSegment>> mgrMap;
+        private final Map<String, List<RateAdjustRule>> rateAdjustMap;
+        private final Map<String, Expense> expenseMap;
 
-        // ============================
-        // Main entry
-        // ============================
-        public Result run(
-                        List<Step2Summary> inputs,
+        public Step3Service(
                         Map<String, List<RateSegment>> rateMap,
                         Map<String, List<MinGuaranteedRateSegment>> mgrMap,
-                        Map<String, Expense> expenseMap,
-                        CalcBaseDateType baseDateType,
-                        LocalDate calcBaseDate,
-                        int calcBaseYear,
-                        boolean debugMode) {
+                        Map<String, List<RateAdjustRule>> rateAdjustMap,
+                        Map<String, Expense> expenseMap) {
 
-                Result result = new Result();
+                this.rateMap = rateMap;
+                this.mgrMap = mgrMap;
+                this.expenseMap = expenseMap;
+                this.rateAdjustMap = rateAdjustMap;
+        }
 
-                for (Step2Summary s2 : inputs) {
+        // =====================================================
+        // Result
+        // =====================================================
+        public record Result(
+                        List<Step3Detail> details,
+                        List<Step3Summary> summaries,
+                        List<CalcDebugRow> debugRows) {
+        }
 
-                        String plyNo = s2.plyNo;
+        // =====================================================
+        // RUN
+        // =====================================================
+        public Result run(
+                        CalcRunContext runCtx,
+                        List<Step2Summary> inputs) {
 
-                        if (baseDateType == CalcBaseDateType.CONTRACT_MMDD) {
-                                calcBaseDate = LocalDate.of(
-                                                calcBaseYear,
-                                                s2.insStartDate.getMonth(),
-                                                s2.insStartDate.getDayOfMonth());
-                        }
+                List<Step3Detail> details = new ArrayList<>();
+                List<Step3Summary> summaries = new ArrayList<>();
+                List<CalcDebugRow> allDebugRows = runCtx.debugMode ? new ArrayList<>() : List.of();
 
-                        LocalDate curDate = s2.annuityDate;
-                        LocalDate endDate = calcBaseDate.isAfter(s2.insClusterDate)
-                                        ? s2.insClusterDate
-                                        : calcBaseDate;
+                for (Step2Summary s : inputs) {
 
-                        double bal = s2.balance;
+                        LocalDate annuityDate = s.annuityDate;
+                        LocalDate insEndDate = s.insEndDate;
+                        LocalDate calcBaseDate = CalcBaseDateResolver.resolve(runCtx, s.contractDate);
 
-                        // 계산 대상 아님
-                        if (curDate.isAfter(endDate)) {
-                                result.summaries.add(
-                                                Step3Summary.of(s2, bal, calcBaseDate));
+                        // 종료 체크 (VBA 동일)
+                        if (calcBaseDate.isBefore(annuityDate)
+                                        || calcBaseDate.isAfter(insEndDate)) {
+
+                                summaries.add(new Step3Summary(
+                                                s.plyNo,
+                                                s.balance,
+                                                calcBaseDate,
+                                                s.rateCode,
+                                                s.productCode,
+                                                s.expenseKey,
+                                                s.annuityTerm));
+
                                 continue;
                         }
 
-                        List<RateSegment> rateArr = rateMap.get(s2.rateCode);
-                        List<MinGuaranteedRateSegment> mgrArr = mgrMap.get(s2.productCode);
+                        Expense exp = expenseMap.get(s.expenseKey);
+                        double annualExpRate = exp.yearlyRate / 100.0;
 
-                        Expense exp = expenseMap.get(s2.expenseKey);
-                        double yearlyExpRate = exp != null ? exp.yearlyRate : 0.0;
+                        // ===== CalcContext (계약 단위) =====
+                        CalcContext ctx = new CalcContext();
+                        ctx.plyNo = s.plyNo;
+                        ctx.contractDate = s.contractDate;
+                        ctx.rateArr = rateMap.get(s.rateCode);
+                        ctx.mgrArr = mgrMap.get(s.productCode);
+                        ctx.rateAdjustRules = rateAdjustMap.get(s.rateCode);
+                        ctx.debugMode = runCtx.debugMode;
+                        ctx.applyTag = "STEP3";
 
-                        // ============================
-                        // Year loop
-                        // ============================
-                        for (int yearIdx = 0; yearIdx < s2.annuityTerm; yearIdx++) {
-
-                                if (!curDate.isBefore(endDate))
-                                        // if (!endDate.isBefore(curDate))
-                                        break;
-
-                                double beginBal = bal;
-
-                                // --------------------------------------------------
-                                // ① 연금용 할인율 (그 시점 단일 값)
-                                // --------------------------------------------------
-
-                                // base rate (date point)
-                                double baseRate = 0.0;
-                                for (RateSegment r : rateArr) {
-                                        if (r.contains(curDate)) {
-                                                baseRate = r.getRate();
-                                                break;
-                                        }
-                                }
-
-                                // mgr rate (elapsed policy year)
-                                long elapsedYear = DateUtil.elapsedYears(
-                                                s2.insStartDate, curDate);
-
-                                double mgrRate = 0.0;
-                                if (mgrArr != null) {
-                                        int y = (int) elapsedYear;
-                                        for (MinGuaranteedRateSegment m : mgrArr) {
-                                                if (m.matches(y)) {
-                                                        mgrRate = m.getRate();
-                                                        break;
-                                                }
-                                        }
-                                }
-
-                                double annRate = Math.max(baseRate, mgrRate);
-                                double v = 1.0 / (1.0 + annRate / 100.0);
-
-                                // --------------------------------------------------
-                                // ② 연금 / 사업비 (연초)
-                                // --------------------------------------------------
-                                int remainYears = (int) (s2.annuityTerm - yearIdx);
-
-                                double annAmt = remainYears > 0
-                                                ? AnnuityUtil.calcAnnuityAmount(bal, v, remainYears)
-                                                                / (1.0 + yearlyExpRate * 0.01)
-                                                : 0.0;
-
-                                double annualExp = annAmt * yearlyExpRate * 0.01;
-
-                                // 연초 차감
-                                bal = bal - annAmt - annualExp;
-
-                                // --------------------------------------------------
-                                // ③ 연말 이자 (CalcFactorByYear에 전부 위임)
-                                // --------------------------------------------------
-                                CalcContext ctx = new CalcContext();
-                                ctx.plyNo = plyNo;
-                                ctx.contractDate = s2.insStartDate;
-                                ctx.rateArr = rateArr;
-                                ctx.mgrArr = mgrArr;
-                                ctx.principal = bal;
-                                ctx.rateAdj = 0.0;
-                                ctx.debugMode = debugMode;
-
-                                LocalDate nextDate = curDate.plusYears(1);
-                                if (nextDate.isAfter(endDate)) {
-                                        nextDate = endDate;
-                                }
-
-                                double factor = FactorCache.getFactor(ctx, curDate, nextDate);
-                                double interest = bal * (factor - 1.0);
-                                bal += interest;
-
-                                // --------------------------------------------------
-                                // Detail
-                                // --------------------------------------------------
-                                Step3Detail d = new Step3Detail();
-                                d.plyNo = plyNo;
-                                d.fromDate = curDate;
-                                d.toDate = nextDate;
-                                d.beginBalance = beginBal;
-                                d.annuityAmount = annAmt;
-                                d.annualExpense = annualExp;
-                                d.interest = interest;
-                                d.endBalance = bal;
-                                d.factor = factor;
-
-                                result.details.add(d);
-
-                                curDate = curDate.plusYears(1);
+                        if (ctx.debugMode) {
+                                ctx.debugRows = new ArrayList<>();
                         }
 
-                        // ============================
-                        // Summary
-                        // ============================
-                        result.summaries.add(
-                                        Step3Summary.of(s2, bal, calcBaseDate));
+                        // ===== Year loop =====
+                        double reserve = s.balance;
+                        LocalDate curDate = annuityDate;
+                        double endBal = reserve;
+
+                        for (int yearIdx = 1; yearIdx <= s.annuityTerm; yearIdx++) {
+
+                                if (!curDate.isBefore(calcBaseDate)
+                                                || !curDate.isBefore(insEndDate)) {
+                                        break;
+                                }
+
+                                LocalDate fromDate = curDate;
+                                LocalDate toDate;
+
+                                if (yearIdx == 1) {
+                                        toDate = curDate; // 최초 1회
+                                } else {
+                                        toDate = curDate.plusYears(1);
+                                }
+
+                                if (toDate.isAfter(calcBaseDate))
+                                        toDate = calcBaseDate;
+                                if (toDate.isAfter(insEndDate))
+                                        toDate = insEndDate;
+
+                                double beginBal = reserve;
+
+                                // ===== Interest =====
+                                double factor;
+                                double interest;
+
+                                ctx.applyTag = "INTEREST";
+                                ctx.principal = beginBal;
+
+                                if (fromDate.isBefore(toDate)) {
+                                        factor = CalcFactorByYear.calc(ctx, fromDate, toDate);
+                                        interest = beginBal * (factor - 1.0);
+                                } else {
+                                        factor = 1.0;
+                                        interest = 0.0;
+                                }
+
+                                double midBal = beginBal + interest;
+
+                                // ===== ANN / EXP (TO_DATE 시점) =====
+                                double annAmt = 0.0;
+                                double annualExp = 0.0;
+
+                                boolean isPaymentDate = toDate.getMonthValue() == s.contractDate.getMonthValue()
+                                                && toDate.getDayOfMonth() == s.contractDate.getDayOfMonth();
+
+                                int remainYears = s.annuityTerm - yearIdx + 1;
+                                double disc = 0.0;
+
+                                if (isPaymentDate) {
+                                        double baseRate = resolveBaseRate(ctx.rateArr, toDate);
+                                        disc = 1.0 / (1.0 + baseRate);
+
+                                        annAmt = calcAnnuityAmount(midBal, disc, remainYears)
+                                                        / (1.0 + annualExpRate);
+
+                                        annualExp = annAmt * annualExpRate;
+                                }
+
+                                endBal = midBal - annAmt - annualExp;
+
+                                // ===== Detail =====
+                                details.add(new Step3Detail(
+                                                s.plyNo,
+                                                fromDate,
+                                                toDate,
+                                                beginBal,
+                                                interest,
+                                                annAmt,
+                                                annualExp,
+                                                endBal,
+                                                factor,
+                                                yearIdx,
+                                                remainYears,
+                                                disc));
+
+                                reserve = endBal;
+                                curDate = toDate;
+                        }
+
+                        if (ctx.debugMode) {
+                                allDebugRows.addAll(ctx.debugRows);
+                        }
+
+                        // ===== Summary =====
+                        summaries.add(new Step3Summary(
+                                        s.plyNo,
+                                        endBal,
+                                        calcBaseDate,
+                                        s.rateCode,
+                                        s.productCode,
+                                        s.expenseKey,
+                                        s.annuityTerm));
                 }
 
-                return result;
+                return new Result(details, summaries, allDebugRows);
+        }
+
+        // =====================================================
+        // Helpers (VBA 대응)
+        // =====================================================
+        private static double resolveBaseRate(
+                        List<RateSegment> rateArr,
+                        LocalDate asOfDate) {
+
+                for (RateSegment r : rateArr) {
+                        if (!asOfDate.isBefore(r.getFromDate())
+                                        && asOfDate.isBefore(r.getToDate())) {
+                                return r.getRate();
+                        }
+                }
+                return 0.0;
+        }
+
+        private static double calcAnnuityAmount(
+                        double balance,
+                        double disc,
+                        int remainYears) {
+
+                if (remainYears <= 0)
+                        return 0.0;
+                return balance * (1.0 - disc) / (1.0 - Math.pow(disc, remainYears));
         }
 }
