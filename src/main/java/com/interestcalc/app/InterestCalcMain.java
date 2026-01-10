@@ -5,59 +5,64 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
 import com.interestcalc.context.CalcBaseDateType;
 import com.interestcalc.context.CalcMasterData;
 import com.interestcalc.context.CalcRunContext;
 import com.interestcalc.domain.Deposit;
 import com.interestcalc.domain.Step1Summary;
 import com.interestcalc.domain.Step2Summary;
-import com.interestcalc.loader.CalcDebugCsvWriter;
-import com.interestcalc.loader.DepositCsvLoader;
-import com.interestcalc.loader.Step1DetailCsvWriter;
-import com.interestcalc.loader.Step1SummaryCsvWriter;
-import com.interestcalc.loader.Step2DetailCsvWriter;
-import com.interestcalc.loader.Step2ExpDetailCsvWriter;
-import com.interestcalc.loader.Step2SummaryCsvWriter;
-import com.interestcalc.loader.Step3DetailCsvWriter;
-import com.interestcalc.loader.Step3SummaryCsvWriter;
-import com.interestcalc.service.Step1Service;
-import com.interestcalc.service.Step2Service;
-import com.interestcalc.service.Step3Service;
+import com.interestcalc.loader.*;
+import com.interestcalc.service.*;
 
+@Component
 public class InterestCalcMain {
 
-        public static void main(String[] args) throws Exception {
+        private static final Logger log = LoggerFactory.getLogger(InterestCalcMain.class);
+
+        public void run() throws Exception {
+
+                long startTime = System.currentTimeMillis();
+                log.info("Interest calculation started");
 
                 // ====================================
                 // Run params (VBA Run 시트 대응)
                 // ====================================
                 CalcRunContext runCtx = new CalcRunContext(
-                                "ALL", // runMode: ALL | ONE
-                                "282120090000067", // targetPlyNo
-                                CalcBaseDateType.CONTRACT, // FIXED | CONTRACT
-                                LocalDate.of(2025, 12, 31), // fixedBaseDate
-                                2025, // contractYear (CONTRACT일 때만 의미)
-                                true // debugMode
-                );
+                                "ALL",
+                                "282120090000067",
+                                CalcBaseDateType.CONTRACT,
+                                LocalDate.of(2025, 12, 31),
+                                2025,
+                                true);
+
                 // ==================================================
                 // Paths
                 // ==================================================
                 Path outDir = Path.of("out");
                 Files.createDirectories(outDir);
-                // ====================================
-                // Load master data (한 번만)
-                // ====================================
+
                 Path dataDir = Path.of("data");
+
+                // ====================================
+                // Load master data
+                // ====================================
+                log.info("Loading master data");
                 CalcMasterData master = CalcMasterData.loadAll(dataDir);
 
                 // ====================================
                 // Load deposits
                 // ====================================
+                log.info("Loading deposit data");
                 List<Deposit> deposits = DepositCsvLoader.load(dataDir.resolve("deposit.csv"));
 
                 // ==================================================
                 // STEP 1
                 // ==================================================
+                log.info("STEP1 started");
                 Step1Service step1Service = new Step1Service(
                                 master.contractMap,
                                 master.rateMap,
@@ -68,7 +73,6 @@ public class InterestCalcMain {
 
                 List<Step1Summary> step1Summaries = List.copyOf(step1.summaries().values());
 
-                // ---- OUTPUT STEP1
                 Step1DetailCsvWriter.write(
                                 outDir.resolve("step1_detail.csv"),
                                 step1.details());
@@ -83,9 +87,13 @@ public class InterestCalcMain {
                                         step1.debugRows());
                 }
 
+                log.info("STEP1 finished: summaries={}", step1Summaries.size());
+
                 // ==================================================
                 // STEP 2
                 // ==================================================
+                log.info("STEP2 started");
+
                 Step2Service step2Service = new Step2Service(
                                 master.rateMap,
                                 master.mgrMap,
@@ -96,7 +104,6 @@ public class InterestCalcMain {
 
                 List<Step2Summary> step2Summaries = step2.summaries();
 
-                // ---- OUTPUT STEP2
                 Step2DetailCsvWriter.write(
                                 outDir.resolve("step2_detail.csv"),
                                 step2.details());
@@ -115,9 +122,13 @@ public class InterestCalcMain {
                                         step2.debugRows());
                 }
 
+                log.info("STEP2 finished: summaries={}", step2Summaries.size());
+
                 // ==================================================
                 // STEP 3
                 // ==================================================
+                log.info("STEP3 started");
+
                 Step3Service step3Service = new Step3Service(
                                 master.rateMap,
                                 master.mgrMap,
@@ -126,7 +137,6 @@ public class InterestCalcMain {
 
                 Step3Service.Result step3 = step3Service.run(runCtx, step2Summaries);
 
-                // ---- OUTPUT STEP3
                 Step3DetailCsvWriter.write(
                                 outDir.resolve("step3_detail.csv"),
                                 step3.details());
@@ -141,7 +151,7 @@ public class InterestCalcMain {
                                         step3.debugRows());
                 }
 
-                // ==================================================
-                System.out.println("=== INTEREST CALC COMPLETE (STEP1~3) ===");
+                long elapsed = System.currentTimeMillis() - startTime;
+                log.info("Interest calculation finished. elapsed={} ms", elapsed);
         }
 }

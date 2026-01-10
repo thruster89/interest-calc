@@ -5,6 +5,7 @@ com\interestcalc\loader\ExpenseCsvLoader.class
 com\interestcalc\domain\Step3Detail.class
 com\interestcalc\service\Step2Service$Result.class
 com\interestcalc\util\RateNormalizer.class
+com\interestcalc\calc\SegmentBuilder$MgrSeg.class
 com\interestcalc\domain\Step1Detail.class
 com\interestcalc\calc\FactorCache.class
 com\interestcalc\app\InterestCalcMain.class
@@ -28,6 +29,7 @@ com\interestcalc\app\CalcFactorRealCaseMain.class
 com\interestcalc\context\CalcRunContext.class
 com\interestcalc\util\DateUtil.class
 com\interestcalc\calc\CalcBaseDateResolver.class
+com\interestcalc\InterestCalcApplication.class
 com\interestcalc\service\Step1Service$Result.class
 com\interestcalc\loader\Step1DetailCsvWriter.class
 com\interestcalc\loader\ContractCsvLoader.class
@@ -35,6 +37,7 @@ com\interestcalc\calc\RateAdjustApplier$1.class
 com\interestcalc\rate\RateAdjustCsvLoader.class
 com\interestcalc\test\MinGuaranteedRateLoadTest.class
 com\interestcalc\test\ContractLoadTest.class
+com\interestcalc\calc\SegmentBuilder$RateSeg.class
 com\interestcalc\context\CalcBaseDateType.class
 com\interestcalc\loader\CalcDebugCsvWriter.class
 com\interestcalc\loader\Step1SummaryCsvWriter.class
@@ -56,6 +59,7 @@ com\interestcalc\domain\Step2ExpDetail.class
 com\interestcalc\rate\RateAdjustDecision.class
 com\interestcalc\loader\RateCsvLoader.class
 com\interestcalc\loader\MinGuaranteedRateCsvLoader.class
+com\interestcalc\InterestCalcRunner.class
 com\interestcalc\loader\DepositCsvLoader.class
 com\interestcalc\calc\RateAdjustApplier.class
 com\interestcalc\domain\RateSegment.class
