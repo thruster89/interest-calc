@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="Step3SummaryMapper">
+
+    <!-- ===============================
+         INSERT (단순 적재)
+         - Step3는 1계약 1행
+         - Cleanup Step에서 선삭제
+       =============================== -->
+    <insert id="insert"
+            parameterType="com.interestcalc.domain.Step3Summary">
+
+        INSERT INTO STEP3_SUMMARY (
+              PLYNO
+            , BALANCE
+            , CALC_BASE_DATE
+            , RATE_CODE
+            , PRODUCT_CODE
+            , EXPENSE_KEY
+            , ANNUITY_TERM
+            , CREATED_AT
+        ) VALUES (
+              #{plyNo}
+            , #{balance}
+            , #{calcBaseDate}
+            , #{rateCode}
+            , #{productCode}
+            , #{expenseKey}
+            , #{annuityTerm}
+            , SYSDATE
+        )
+
+    </insert>
+
+</mapper>

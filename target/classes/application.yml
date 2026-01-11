@@ -1,0 +1,22 @@
+calc:
+  run-mode: ONE
+  target-ply-no: "282120090000066"
+  base-date-type: CONTRACT
+  fixed-base-date: 2025-12-31
+  contract-year: 2025
+  debug-mode: true
+
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/orclpdb
+    username: tester
+    password: 1
+    driver-class-name: oracle.jdbc.OracleDriver
+
+  batch:
+    jdbc:
+      initialize-schema: always
+
+mybatis:
+  mapper-locations: classpath:mybatis/**/*.xml
+  type-aliases-package: com.interestcalc.domain

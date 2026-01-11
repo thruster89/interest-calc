@@ -1,157 +1,159 @@
-package com.interestcalc.app;
+// package com.interestcalc.app;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.LocalDate;
-import java.util.List;
+// import java.nio.file.Files;
+// import java.nio.file.Path;
+// import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
+// import org.slf4j.Logger;
+// import org.slf4j.LoggerFactory;
+// import org.springframework.beans.factory.ObjectProvider;
+// import org.springframework.stereotype.Component;
 
-import com.interestcalc.context.CalcBaseDateType;
-import com.interestcalc.context.CalcMasterData;
-import com.interestcalc.context.CalcRunContext;
-import com.interestcalc.domain.Deposit;
-import com.interestcalc.domain.Step1Summary;
-import com.interestcalc.domain.Step2Summary;
-import com.interestcalc.loader.*;
-import com.interestcalc.service.*;
+// import com.interestcalc.context.CalcRunContext;
+// import com.interestcalc.domain.Deposit;
+// import com.interestcalc.domain.Step1Summary;
+// import com.interestcalc.domain.Step2Summary;
+// import com.interestcalc.loader.CalcDebugCsvWriter;
+// import com.interestcalc.loader.Step1DetailCsvWriter;
+// import com.interestcalc.loader.Step1SummaryCsvWriter;
+// import com.interestcalc.loader.Step2DetailCsvWriter;
+// import com.interestcalc.loader.Step2ExpDetailCsvWriter;
+// import com.interestcalc.loader.Step2SummaryCsvWriter;
+// import com.interestcalc.loader.Step3DetailCsvWriter;
+// import com.interestcalc.loader.Step3SummaryCsvWriter;
+// import com.interestcalc.mapper.DepositMapper;
+// import com.interestcalc.service.Step1Service;
+// import com.interestcalc.service.Step2Service;
+// import com.interestcalc.service.Step3Service;
 
-@Component
-public class InterestCalcMain {
+// @Component
+// public class InterestCalcMain {
 
-        private static final Logger log = LoggerFactory.getLogger(InterestCalcMain.class);
+// private static final Logger log =
+// LoggerFactory.getLogger(InterestCalcMain.class);
 
-        public void run() throws Exception {
+// private final Step1Service step1Service;
+// private final Step2Service step2Service;
+// private final Step3Service step3Service;
+// private final ObjectProvider<CalcRunContext> runCtxProvider;
+// private final DepositMapper depositMapper;
 
-                long startTime = System.currentTimeMillis();
-                log.info("Interest calculation started");
+// public InterestCalcMain(
+// DepositMapper depositMapper,
+// Step1Service step1Service,
+// Step2Service step2Service,
+// Step3Service step3Service,
+// ObjectProvider<CalcRunContext> runCtxProvider) {
 
-                // ====================================
-                // Run params (VBA Run 시트 대응)
-                // ====================================
-                CalcRunContext runCtx = new CalcRunContext(
-                                "ALL",
-                                "282120090000067",
-                                CalcBaseDateType.CONTRACT,
-                                LocalDate.of(2025, 12, 31),
-                                2025,
-                                true);
+// this.depositMapper = depositMapper;
+// this.step1Service = step1Service;
+// this.step2Service = step2Service;
+// this.step3Service = step3Service;
+// this.runCtxProvider = runCtxProvider;
+// }
 
-                // ==================================================
-                // Paths
-                // ==================================================
-                Path outDir = Path.of("out");
-                Files.createDirectories(outDir);
+// public void run() throws Exception {
 
-                Path dataDir = Path.of("data");
+// long startTime = System.currentTimeMillis();
+// log.info("Interest calculation started");
 
-                // ====================================
-                // Load master data
-                // ====================================
-                log.info("Loading master data");
-                CalcMasterData master = CalcMasterData.loadAll(dataDir);
+// // CalcRunContext runCtx = new CalcRunContext(
+// // "ALL",
+// // "282120090000066",
+// // CalcBaseDateType.CONTRACT,
+// // LocalDate.of(2025, 12, 31),
+// // 2025,
+// // true);
+// CalcRunContext runCtx = runCtxProvider.getObject();
 
-                // ====================================
-                // Load deposits
-                // ====================================
-                log.info("Loading deposit data");
-                List<Deposit> deposits = DepositCsvLoader.load(dataDir.resolve("deposit.csv"));
+// Path outDir = Path.of("out");
+// Files.createDirectories(outDir);
 
-                // ==================================================
-                // STEP 1
-                // ==================================================
-                log.info("STEP1 started");
-                Step1Service step1Service = new Step1Service(
-                                master.contractMap,
-                                master.rateMap,
-                                master.mgrMap,
-                                master.rateAdjustMap);
+// // Path dataDir = Path.of("data");
 
-                Step1Service.Result step1 = step1Service.run(runCtx, deposits);
+// // ===== Load deposits only (master는 Spring이 관리) =====
+// log.info("Loading deposit data");
+// List<Deposit> deposits = depositMapper.selectDeposits(
+// runCtx.runMode,
+// runCtx.targetPlyNo);
 
-                List<Step1Summary> step1Summaries = List.copyOf(step1.summaries().values());
+// // ==================================================
+// // STEP 1
+// // ==================================================
+// log.info("STEP1 started");
 
-                Step1DetailCsvWriter.write(
-                                outDir.resolve("step1_detail.csv"),
-                                step1.details());
+// Step1Service.Result step1 = step1Service.run(runCtx, deposits);
 
-                Step1SummaryCsvWriter.write(
-                                outDir.resolve("step1_summary.csv"),
-                                step1Summaries);
+// List<Step1Summary> step1Summaries = List.copyOf(step1.summaries().values());
 
-                if (runCtx.debugMode) {
-                        CalcDebugCsvWriter.write(
-                                        outDir.resolve("step1_debug.csv"),
-                                        step1.debugRows());
-                }
+// Step1DetailCsvWriter.write(
+// outDir.resolve("step1_detail.csv"),
+// step1.details());
 
-                log.info("STEP1 finished: summaries={}", step1Summaries.size());
+// Step1SummaryCsvWriter.write(
+// outDir.resolve("step1_summary.csv"),
+// step1Summaries);
 
-                // ==================================================
-                // STEP 2
-                // ==================================================
-                log.info("STEP2 started");
+// if (runCtx.debugMode) {
+// CalcDebugCsvWriter.write(
+// outDir.resolve("step1_debug.csv"),
+// step1.debugRows());
+// }
 
-                Step2Service step2Service = new Step2Service(
-                                master.rateMap,
-                                master.mgrMap,
-                                master.rateAdjustMap,
-                                master.expenseMap);
+// log.info("STEP1 finished: summaries={}", step1Summaries.size());
 
-                Step2Service.Result step2 = step2Service.run(runCtx, step1Summaries);
+// // ==================================================
+// // STEP 2
+// // ==================================================
+// log.info("STEP2 started");
 
-                List<Step2Summary> step2Summaries = step2.summaries();
+// Step2Service.Result step2 = step2Service.run(runCtx, step1Summaries);
 
-                Step2DetailCsvWriter.write(
-                                outDir.resolve("step2_detail.csv"),
-                                step2.details());
+// List<Step2Summary> step2Summaries = step2.summaries();
 
-                Step2ExpDetailCsvWriter.write(
-                                outDir.resolve("step2_exp_detail.csv"),
-                                step2.expDetails());
+// Step2DetailCsvWriter.write(
+// outDir.resolve("step2_detail.csv"),
+// step2.details());
 
-                Step2SummaryCsvWriter.write(
-                                outDir.resolve("step2_summary.csv"),
-                                step2Summaries);
+// Step2ExpDetailCsvWriter.write(
+// outDir.resolve("step2_exp_detail.csv"),
+// step2.expDetails());
 
-                if (runCtx.debugMode) {
-                        CalcDebugCsvWriter.write(
-                                        outDir.resolve("step2_debug.csv"),
-                                        step2.debugRows());
-                }
+// Step2SummaryCsvWriter.write(
+// outDir.resolve("step2_summary.csv"),
+// step2Summaries);
 
-                log.info("STEP2 finished: summaries={}", step2Summaries.size());
+// if (runCtx.debugMode) {
+// CalcDebugCsvWriter.write(
+// outDir.resolve("step2_debug.csv"),
+// step2.debugRows());
+// }
 
-                // ==================================================
-                // STEP 3
-                // ==================================================
-                log.info("STEP3 started");
+// log.info("STEP2 finished: summaries={}", step2Summaries.size());
 
-                Step3Service step3Service = new Step3Service(
-                                master.rateMap,
-                                master.mgrMap,
-                                master.rateAdjustMap,
-                                master.expenseMap);
+// // ==================================================
+// // STEP 3
+// // ==================================================
+// log.info("STEP3 started");
 
-                Step3Service.Result step3 = step3Service.run(runCtx, step2Summaries);
+// Step3Service.Result step3 = step3Service.run(runCtx, step2Summaries);
 
-                Step3DetailCsvWriter.write(
-                                outDir.resolve("step3_detail.csv"),
-                                step3.details());
+// Step3DetailCsvWriter.write(
+// outDir.resolve("step3_detail.csv"),
+// step3.details());
 
-                Step3SummaryCsvWriter.write(
-                                outDir.resolve("step3_summary.csv"),
-                                step3.summaries());
+// Step3SummaryCsvWriter.write(
+// outDir.resolve("step3_summary.csv"),
+// step3.summaries());
 
-                if (runCtx.debugMode) {
-                        CalcDebugCsvWriter.write(
-                                        outDir.resolve("step3_debug.csv"),
-                                        step3.debugRows());
-                }
+// if (runCtx.debugMode) {
+// CalcDebugCsvWriter.write(
+// outDir.resolve("step3_debug.csv"),
+// step3.debugRows());
+// }
+// log.info("STEP3 finished: summaries={}", step3.summaries().size());
 
-                long elapsed = System.currentTimeMillis() - startTime;
-                log.info("Interest calculation finished. elapsed={} ms", elapsed);
-        }
-}
+// long elapsed = System.currentTimeMillis() - startTime;
+// log.info("Interest calculation finished. elapsed={} ms", elapsed);
+// }
+// }

@@ -5,7 +5,7 @@ import java.time.LocalDate;
 public class Step1Detail {
 
     public String plyNo;
-    public int depositSeq;
+    public long depositSeq;
     public LocalDate depositDate;
     public double principal;
 
@@ -21,7 +21,7 @@ public class Step1Detail {
 
     public Step1Detail(
             String plyNo,
-            int depositSeq,
+            long depositSeq,
             LocalDate depositDate,
             double principal,
             double factor,

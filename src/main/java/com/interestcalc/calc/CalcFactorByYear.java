@@ -42,7 +42,7 @@ public class CalcFactorByYear {
 
                         // ===== YEAR_START DEBUG =====
                         if (ctx.debugMode) {
-                                ctx.debugRows.add(
+                                ctx.addDebug(
                                                 CalcDebugRow.yearStart(
                                                                 ctx.applyTag,
                                                                 ctx.plyNo,
@@ -83,7 +83,7 @@ public class CalcFactorByYear {
                                                         ctx.contractDate,
                                                         seg.intFrom);
 
-                                        ctx.debugRows.add(
+                                        ctx.addDebug(
                                                         CalcDebugRow.detail(
                                                                         ctx.applyTag,
                                                                         ctx.plyNo,
@@ -108,7 +108,7 @@ public class CalcFactorByYear {
 
                         // ===== YEAR_END DEBUG =====
                         if (ctx.debugMode) {
-                                ctx.debugRows.add(
+                                ctx.addDebug(
                                                 CalcDebugRow.yearEnd(
                                                                 ctx.applyTag,
                                                                 ctx.plyNo,

@@ -1,0 +1,54 @@
+<mapper namespace="Step2SummaryMapper">
+
+    <insert id="merge" parameterType="com.interestcalc.domain.Step2Summary">
+        MERGE INTO STEP2_SUMMARY t
+        USING (
+            SELECT #{plyNo} AS PLYNO FROM DUAL
+        ) s
+        ON (t.PLYNO = s.PLYNO)
+
+        WHEN MATCHED THEN UPDATE SET
+            BALANCE                = #{balance},
+            STEP2_END_DATE         = #{step2EndDate},
+            ANNUITY_DATE           = #{annuityDate},
+            RATE_CODE              = #{rateCode},
+            PRODUCT_CODE           = #{productCode},
+            EXPENSE_KEY            = #{expenseKey},
+            ANNUITY_TERM           = #{annuityTerm},
+            INS_END_DATE           = #{insEndDate},
+            CONTRACT_DATE          = #{contractDate},
+            BASE_END_BALANCE       = #{baseEndBalance},
+            MONTHLY_EXP_ACC_AMOUNT = #{monthlyExpAccAmount}
+
+        WHEN NOT MATCHED THEN INSERT (
+            PLYNO,
+            BALANCE,
+            STEP2_END_DATE,
+            ANNUITY_DATE,
+            RATE_CODE,
+            PRODUCT_CODE,
+            EXPENSE_KEY,
+            ANNUITY_TERM,
+            INS_END_DATE,
+            CONTRACT_DATE,
+            BASE_END_BALANCE,
+            MONTHLY_EXP_ACC_AMOUNT,
+            CREATED_AT
+        ) VALUES (
+            #{plyNo},
+            #{balance},
+            #{step2EndDate},
+            #{annuityDate},
+            #{rateCode},
+            #{productCode},
+            #{expenseKey},
+            #{annuityTerm},
+            #{insEndDate},
+            #{contractDate},
+            #{baseEndBalance},
+            #{monthlyExpAccAmount},
+            SYSDATE
+        )
+    </insert>
+
+</mapper>

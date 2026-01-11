@@ -92,7 +92,7 @@ public class CalcFactorRealCaseMain {
         // 6. 결과 출력
         // ===============================
         System.out.println("===== REAL CASE TEST =====");
-        System.out.println("PLY_NO        = " + testPlyNo);
+        System.out.println("PLYNO        = " + testPlyNo);
         System.out.println("DEPOSIT_SEQ   = " + dep.getDepositSeq());
         System.out.println("FROM          = " + dep.getDepositDate());
         System.out.println("TO            = " + step1EndDate);

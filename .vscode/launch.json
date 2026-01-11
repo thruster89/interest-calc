@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "InterestCalc ONE (FIXED)",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "com.interestcalc.InterestCalcApplication",
+      "args": [
+            "runId=6",
+        "--calc.run-mode=ONE",
+        "--calc.target-ply-no=282120090000064",
+        "--calc.base-date-type=FIXED",
+        "--calc.calc-base-date=2025-12-31"
+      ]
+    },
+    {
+      "name": "InterestCalc ONE (CONTRACT)",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "com.interestcalc.InterestCalcApplication",
+      "args": [
+        "--calc.run-mode=ONE",
+        "--calc.target-ply-no=282120090000066",
+        "--calc.base-date-type=CONTRACT",
+        "--calc.contract-year=2025"
+      ]
+    },
+    {
+      "name": "InterestCalc ALL (CONTRACT)",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "com.interestcalc.InterestCalcApplication",
+      "args": [
+        "--calc.run-mode=ALL",
+        "--calc.base-date-type=CONTRACT",
+        "--calc.contract-year=2025"
+      ]
+    }
+  ]
+}

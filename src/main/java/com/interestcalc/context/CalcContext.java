@@ -15,64 +15,65 @@ import com.interestcalc.domain.RateSegment;
  */
 public class CalcContext {
 
-    /*
-     * =========================
-     * 식별 정보
-     * =========================
-     */
+    // =========================
+    // 식별 정보
+    // =========================
     public String plyNo;
-    public int depositSeq;
+    public long depositSeq;
     public LocalDate contractDate;
 
-    /*
-     * =========================
-     * 금액
-     * =========================
-     */
+    // =========================
+    // 금액
+    // =========================
     public double principal;
 
-    /*
-     * =========================
-     * 이율 데이터
-     * =========================
-     */
+    // =========================
+    // 이율 데이터
+    // =========================
     public List<RateSegment> rateArr;
     public List<MinGuaranteedRateSegment> mgrArr;
     public List<RateAdjustRule> rateAdjustRules;
 
-    /*
-     * =========================
-     * 이율 조정 상태 (세그먼트별)
-     * =========================
-     */
-    public double rateAdd = 0.0; // +/-
-    public double rateMul = 1.0; // ×
+    // =========================
+    // 이율 조정 상태
+    // =========================
+    public double rateAdd = 0.0;
+    public double rateMul = 1.0;
 
-    /*
-     * =========================
-     * 연 단위 추적
-     * =========================
-     */
+    // =========================
+    // 연 단위 추적
+    // =========================
     public int yearIdx = 1;
     public boolean isFirstSegInYear = true;
 
-    /*
-     * =========================
-     * 디버그
-     * =========================
-     */
+    // =========================
+    // 디버그
+    // =========================
     public boolean debugMode = false;
     public String applyTag;
-    public List<CalcDebugRow> debugRows = new ArrayList<>();
+    public List<CalcDebugRow> debugRows; // ← 즉시 생성 제거
 
-    /*
-     * =========================
-     * 생성자
-     * =========================
-     */
+    // =========================
+    // 생성자
+    // =========================
     public CalcContext() {
-        // 명시적 초기화
         this.rateAdd = 0.0;
         this.rateMul = 1.0;
+    }
+
+    // =========================
+    // Debug helper
+    // =========================
+    public void addDebug(CalcDebugRow row) {
+
+        if (!debugMode) {
+            return;
+        }
+
+        if (debugRows == null) {
+            debugRows = new ArrayList<>();
+        }
+
+        debugRows.add(row);
     }
 }

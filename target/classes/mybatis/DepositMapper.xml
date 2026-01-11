@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.interestcalc.mapper.DepositMapper">
+
+    <!-- ===================================================== -->
+    <!-- Step1 : Contract + Deposit JOIN (Cursor Streaming) -->
+    <!-- ===================================================== -->
+ <select id="selectDepositJoinForStep1"
+        resultType="com.interestcalc.batch.dto.DepositJoinRow">
+
+    SELECT
+        c.PLYNO                     AS plyNo,
+        c.INS_ST                    AS insStartDate,
+        c.INS_CLSTR                 AS insEndDate,
+        c.AN_PY_STDT                AS annuityDate,
+
+        c.GDCD                      AS productCode,
+        c.RATE_CODE                 AS rateCode,
+        c.PR_BZCS_DSCNO             AS expenseKey,
+
+        c.RL_PYM_TRM                AS payYears,
+        c.DFR_TRM                   AS deferYears,
+        c.AN_PY_TRM                 AS annuityTerm,
+
+        c.EXPCT_INRT                AS expectedInterest,
+        c.PR_NWCRT_TAMT             AS deductible,
+        c.CRFW_PR_NWCRT_TAMT        AS carryForwardDeductible,
+
+        c.PYM_CYCCD                 AS pymCyccd,
+        c.AN_INS_TRM_FLGCD          AS annInsTrmFlgcd,
+        c.AN_PYTCD                  AS annPytcd,
+        c.AN_PY_GIRT                AS annPyGirt,
+
+        d.DEPOSIT_SEQ               AS depositSeq,
+        d.DEPOSIT_DATE              AS depositDate,
+        d.PRINCIPAL                 AS principal
+
+    FROM CONTRACT c
+    JOIN DEPOSIT d
+      ON d.PLYNO = c.PLYNO
+
+    WHERE
+        (#{runMode} = 'ALL'
+         OR c.PLYNO = #{targetPlyNo})
+
+    ORDER BY
+        c.PLYNO,
+        d.DEPOSIT_SEQ
+</select>
+
+
+
+    <select id="selectStep1Summary"
+            resultType="com.interestcalc.domain.Step1Summary">
+        SELECT
+            *
+        FROM STEP1_SUMMARY
+    WHERE
+        (#{runMode} = 'ALL'
+         OR PLYNO = #{targetPlyNo})
+        ORDER BY
+            PLYNO
+    </select>
+
+    <select id="selectStep2Summary"
+            resultType="com.interestcalc.domain.Step2Summary">
+        SELECT
+            *
+        FROM STEP2_SUMMARY
+    WHERE
+        (#{runMode} = 'ALL'
+         OR PLYNO = #{targetPlyNo})
+        ORDER BY
+            PLYNO
+    </select>
+</mapper>
+
+
+
